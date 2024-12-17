@@ -16,5 +16,4 @@ class Sentence {
       isAnnotated: json['is_annotated'],
     );
   }
-
 }

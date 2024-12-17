@@ -1,16 +1,21 @@
+// ignore_for_file: must_be_immutable, library_private_types_in_public_api, no_logic_in_create_state, avoid_print, file_names, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
+import 'package:multiwordexpressionworkbench/services/secureStorageService.dart';
 
 import '../models/annotation_model.dart';
 import '../models/sentence_model.dart';
 import '../services/annotationService.dart';
+import 'loginPage.dart';
 
 class EditableTextFields extends StatefulWidget {
   List<Sentence>? sentences;
 
-  EditableTextFields({super.key,  this.sentences});
+  EditableTextFields({super.key, this.sentences});
 
   @override
-  _EditableTextFieldsState createState() => _EditableTextFieldsState(sentences!);
+  _EditableTextFieldsState createState() =>
+      _EditableTextFieldsState(sentences!);
 }
 
 class _EditableTextFieldsState extends State<EditableTextFields> {
@@ -21,7 +26,13 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
   int? selectedField;
   late int selectedIndex;
   String selectedText = '';
-  final List<String> _dropdownAnnotationValues = ["Noun Compound", "Reduplicated", "Idiom", "Compound Verb", "Complex Predicate"];
+  final List<String> _dropdownAnnotationValues = [
+    "Noun Compound",
+    "Reduplicated",
+    "Idiom",
+    "Compound Verb",
+    "Complex Predicate"
+  ];
   String? _selectedValue;
   final bool _isEnabled = true;
   bool _enableSubmitAnnotationButton = false;
@@ -30,7 +41,6 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
   AnnotationService annotationService = AnnotationService();
 
   _EditableTextFieldsState(this.sentences);
-
 
   @override
   void initState() {
@@ -45,8 +55,7 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
     int end = start + pageSize;
     for (int i = start; i < end && i < sentences.length; i++) {
       var sent = sentences[i].content;
-      controllers.add(TextEditingController(
-          text: sent ));
+      controllers.add(TextEditingController(text: sent));
     }
   }
 
@@ -68,6 +77,15 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
         selectedIndex = index;
       });
     }
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    // Navigate to Login Page
+    await SecureStorage().deleteSecureData('jwtToken');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
   }
 
   Widget _paginationControls() {
@@ -117,7 +135,7 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar : AppBar(
+      appBar: AppBar(
         leading: Image.asset(
           "images/logo.png",
         ),
@@ -130,7 +148,9 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
         actions: [
           Container(
               margin: const EdgeInsets.all(20.0),
-              child: ElevatedButton(onPressed: () {}, child: const Text("Log Out"))),
+              child: ElevatedButton(
+                  onPressed: () => _logout(context),
+                  child: const Text("Log Out"))),
         ],
       ),
       body: Row(
@@ -147,10 +167,9 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
                     itemBuilder: (context, index) {
                       return Container(
                         margin: const EdgeInsets.all(4),
-
                         decoration: BoxDecoration(
                           color: selectedField ==
-                              index + ((currentPage - 1) * pageSize)
+                                  index + ((currentPage - 1) * pageSize)
                               ? Colors.yellow
                               : Colors.white,
                           border: Border.all(color: Colors.grey),
@@ -159,7 +178,7 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
                         child: ListTile(
                           title: TextField(
                             decoration:
-                            const InputDecoration(border: InputBorder.none),
+                                const InputDecoration(border: InputBorder.none),
                             controller: controllers[index],
                             readOnly: true,
                             onTap: () {
@@ -172,12 +191,12 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
                           ),
                           //leading: sentences[selectedIndex].isAnnotated?Icon(Icons.circle,color: Colors.green,):Icon(Icons.circle,color: Colors.red,),
                           trailing: selectedField ==
-                              index + ((currentPage - 1) * pageSize)
+                                  index + ((currentPage - 1) * pageSize)
                               ? ElevatedButton(
-                            onPressed: () =>
-                                _checkSelectedText(controllers[index], index),
-                            child: const Text("Annotate"),
-                          )
+                                  onPressed: () => _checkSelectedText(
+                                      controllers[index], index),
+                                  child: const Text("Annotate"),
+                                )
                               : const SizedBox(),
                         ),
                       );
@@ -217,29 +236,29 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
                               onPressed: () {
                                 setState(() {
                                   _enableSubmitAnnotationButton = false;
-                                  _annotationList.add(
-                                    Annotation(
-                                      wordPhrase: selectedText,
-                                      annotation: _selectedValue!,
-                                      sentenceId: selectedField! + 1,
-                                      projectId: 1,
-                                    )
-                                  );
+                                  _annotationList.add(Annotation(
+                                    wordPhrase: selectedText,
+                                    annotation: _selectedValue!,
+                                    sentenceId: selectedField! + 1,
+                                    projectId: 1,
+                                  ));
                                   _selectedValue = null;
                                 });
                               },
-                              child: const Text("+ Add",))
+                              child: const Text(
+                                "+ Add",
+                              ))
                       ],
                     ),
                   ),
-
-                if (selectedText.trim().split(RegExp(r'\s+')).length < 2) const Text("Select aleast 2 words to annotate"),
+                if (selectedText.trim().split(RegExp(r'\s+')).length < 2)
+                  const Text("Select aleast 2 words to annotate"),
                 _paginationControls(),
               ],
             ),
           ),
-            Container(
-              padding: const EdgeInsets.all(10),
+          Container(
+            padding: const EdgeInsets.all(10),
             margin: EdgeInsets.all(10),
             width: 500,
             height: 600,
@@ -247,55 +266,64 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
               border: Border.all(color: Colors.blueAccent),
               borderRadius: BorderRadius.circular(5),
             ),
-            child: Column(
-              children: [
-                const Text("Annotations", style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
-                SizedBox(
-                  width: 400,
-                  height: 500,
-                  child: ListView.builder(
-                    itemCount: _annotationList.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      // Convert each map to a list of Widgets to display each key-value pair
+            child: Column(children: [
+              const Text("Annotations",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              SizedBox(
+                width: 400,
+                height: 500,
+                child: ListView.builder(
+                  itemCount: _annotationList.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    // Convert each map to a list of Widgets to display each key-value pair
 
-                        return Card(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Text("${_annotationList[index].wordPhrase}: ${_annotationList[index].annotation}"),
-                              IconButton(
-                                onPressed: (){
-                                  setState(() {
-                                      print(_annotationList[index].sentenceId);
-                                    _annotationList.removeAt(index);
-                                  });
-
-                                }, icon: const Icon(Icons.delete),
-                              )
-                            ],
+                    return Card(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          TextField(
+                            controller: TextEditingController(
+                              text: _annotationList[index].wordPhrase,
+                            ),
+                            onChanged: (newValue) {
+                              setState(() {
+                                _annotationList[index].wordPhrase = newValue;
+                              });
+                            },
+                            decoration:
+                                InputDecoration(border: OutlineInputBorder()),
                           ),
-                        );
-                    },
-                  ),
+                          Text(": ${_annotationList[index].annotation}"),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                print(_annotationList[index].sentenceId);
+                                _annotationList.removeAt(index);
+                              });
+                            },
+                            icon: const Icon(Icons.delete),
+                          )
+                        ],
+                      ),
+                    );
+                  },
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(onPressed: () {setState(() {
-                      sentences[selectedIndex].isAnnotated = true;
-                    });  }, child: const Text("Submit")),
-                    ElevatedButton(onPressed: () {  }, child: const Text("Reset"),),
-                  ]
-
-                )
-
-
-              ]
-            ),
+              ),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        sentences[selectedIndex].isAnnotated = true;
+                      });
+                    },
+                    child: const Text("Submit")),
+                ElevatedButton(
+                  onPressed: () {},
+                  child: const Text("Reset"),
+                ),
+              ])
+            ]),
           ),
-
-
         ],
       ),
     );

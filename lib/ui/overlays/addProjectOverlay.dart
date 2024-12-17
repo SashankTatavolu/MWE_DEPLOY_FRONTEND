@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, constant_identifier_names, avoid_print
+
 import 'dart:convert';
 import 'dart:js_util';
 import 'dart:typed_data';
@@ -6,8 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/secureStorageService.dart';
-import 'package:http/http.dart' as http;
-
+import 'package:http/http.dart' as https;
 
 enum Language {
   Bangla,
@@ -45,8 +46,8 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
 
   Future<Object> _uploadProject(String projectTitle, String projectDescription,
       String language, String fileText) async {
-
-    var url = Uri.https('www.cfilt.iitb.ac.in', 'annotation_tool_apis/project/add_project');
+    var url = Uri.https(
+        'www.cfilt.iitb.ac.in', 'annotation_tool_apis/project/add_project');
     token = await SecureStorage().readSecureData("jwtToken");
     print(token);
     var header = {
@@ -61,16 +62,15 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
     };
     String bodyJson = jsonEncode(body);
 
-    final response = await http.post(
+    final response = await https.post(
       url,
       headers: header,
       body: bodyJson,
     );
     print(response);
     if (response.statusCode == 201) {
-
+      widget.onCancel!();
       return response;
-
     } else {
       return false;
     }
@@ -114,7 +114,7 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
               )
             ]),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              const SizedBox(width: 120, child: Text('Project Decription')),
+              const SizedBox(width: 120, child: Text('Project Description')),
               Container(
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.all(8),
@@ -352,7 +352,7 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
                       },
                       style: const ButtonStyle(
                           backgroundColor:
-                              MaterialStatePropertyAll<Color>(Colors.green)),
+                              WidgetStatePropertyAll<Color>(Colors.green)),
                       child: const Text(
                         "Submit",
                         style: TextStyle(
@@ -366,7 +366,7 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
                       },
                       style: const ButtonStyle(
                           backgroundColor:
-                              MaterialStatePropertyAll<Color>(Colors.red)),
+                              WidgetStatePropertyAll<Color>(Colors.red)),
                       child: const Text(
                         "Cancel",
                         style: TextStyle(
@@ -410,7 +410,6 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
       // For Flutter Web, the result contains the file bytes directly
       setState(() {
         _fileUploaded = true;
-
       });
       PlatformFile file = result.files.first;
 

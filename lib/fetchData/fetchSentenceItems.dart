@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names, avoid_print
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,13 +7,12 @@ import 'package:http/http.dart' as http;
 import '../models/sentence_model.dart';
 import '../services/secureStorageService.dart';
 
-
 Future<List<Sentence>> FetchSentenceItems(int projectId) async {
-
-  var url = Uri.https('www.cfilt.iitb.ac.in', 'annotation_tool_apis/sentence/get_sentences');
+  var url = Uri.https(
+      'www.cfilt.iitb.ac.in', 'annotation_tool_apis/sentence/get_sentences');
   var token = await SecureStorage().readSecureData("jwtToken");
 
-  var body = {"project_id" : projectId};
+  var body = {"project_id": projectId};
   String bodyJson = jsonEncode(body);
 
   var header = {
@@ -19,11 +20,10 @@ Future<List<Sentence>> FetchSentenceItems(int projectId) async {
     'Content-Type': 'application/json; charset=UTF-8'
   };
 
-
   final response = await http.post(
     url,
     headers: header,
-    body : bodyJson,
+    body: bodyJson,
   );
 
   print(response);
@@ -36,3 +36,38 @@ Future<List<Sentence>> FetchSentenceItems(int projectId) async {
   }
 }
 
+Future<List<Map<String, dynamic>>> searchAnnotationsWithResults(
+    String query, String? language) async {
+  // API endpoint
+  var url = Uri.https('www.cfilt.iitb.ac.in',
+      'annotation_tool_apis/annotation/search_annotations');
+
+  var token = await SecureStorage().readSecureData("jwtToken");
+
+  // Set up headers
+  var headers = {
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
+
+  // Construct request body
+  var body = jsonEncode({
+    'word_phrase': query,
+    if (language != null)
+      'language': language, // Include language only if provided
+  });
+
+  // Send the POST request
+  final response = await http.post(url, headers: headers, body: body);
+
+  if (response.statusCode == 200) {
+    // Parse the JSON response into a list of annotations
+    return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+  } else if (response.statusCode == 404) {
+    // No annotations found, return an empty list
+    return [];
+  } else {
+    // Handle error
+    throw Exception('Failed to fetch annotations: ${response.body}');
+  }
+}

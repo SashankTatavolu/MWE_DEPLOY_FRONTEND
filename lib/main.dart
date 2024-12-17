@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_unnecessary_containers
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:multiwordexpressionworkbench/ui/loginPage.dart';
@@ -23,4 +25,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
