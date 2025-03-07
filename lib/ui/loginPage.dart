@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<bool> _validLogin(String email, String password) async {
-    var url = Uri.parse('http://localhost:5000/user/login');
+    var url = Uri.parse('http://localhost:5432/user/login');
     var body = jsonEncode({"email": email, "password": password});
 
     try {

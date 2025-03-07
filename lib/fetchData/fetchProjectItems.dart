@@ -10,7 +10,7 @@ import '../models/project.dart';
 import '../services/secureStorageService.dart';
 
 Future<List<Project>> FetchProjectItems() async {
-  var url = Uri.parse('http://localhost:5000/project/get_project_list');
+  var url = Uri.parse('http://localhost:5432/project/get_project_list');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var header = {
@@ -35,7 +35,7 @@ Future<List<Project>> FetchProjectItems() async {
 Future<List<Map<String, dynamic>>> fetchUsersByOrganization(
     String organizationName) async {
   var url =
-      Uri.parse('http://localhost:5000/user/organisation/$organizationName');
+      Uri.parse('http://localhost:5432/user/organisation/$organizationName');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -62,7 +62,7 @@ Future<List<Map<String, dynamic>>> fetchUsersByOrganization(
 
 Future<void> assignSentencesToUsers(
     int projectId, List<Map<String, dynamic>> assignments) async {
-  var url = Uri.parse('http://localhost:5000/sentence/assign_sentences');
+  var url = Uri.parse('http://localhost:5432/sentence/assign_sentences');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -91,7 +91,7 @@ Future<void> assignSentencesToUsers(
 }
 
 Future<List<int>> fetchSentenceIds(int projectId) async {
-  var url = Uri.parse('http://localhost:5000/sentence/get_sentence_ids');
+  var url = Uri.parse('http://localhost:5432/sentence/get_sentence_ids');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -116,7 +116,7 @@ Future<List<int>> fetchSentenceIds(int projectId) async {
 
 Future<List<int>> fetchAssignedSentenceIds() async {
   var url =
-      Uri.parse('http://localhost:5000/sentence/check_assigned_sentences');
+      Uri.parse('http://localhost:5432/sentence/check_assigned_sentences');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -140,7 +140,7 @@ Future<List<int>> fetchAssignedSentenceIds() async {
 }
 
 Future<Map<String, List<int>>> fetchSentenceStatus(int projectId) async {
-  var url = Uri.parse('http://localhost:5000/sentence/get_sentence_status');
+  var url = Uri.parse('http://localhost:5432/sentence/get_sentence_status');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -180,7 +180,7 @@ Future<int> fetchTotalSentences(int projectId) async {
 
 Future<List<String>> searchAnnotations(String query, String? language) async {
   var url = Uri.parse(
-    'http://localhost:5000/search_annotations',
+    'http://localhost:5432/search_annotations',
   ).replace(queryParameters: {
     'query': query,
     'language': language ?? '',
@@ -212,7 +212,7 @@ Future<List<String>> searchAnnotations(String query, String? language) async {
 
 Future<void> updateProjectTitle(int projectId, String newTitle) async {
   var url = Uri.parse(
-      'http://localhost:5000/project/update_project_title/$projectId');
+      'http://localhost:5432/project/update_project_title/$projectId');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -241,7 +241,7 @@ Future<void> updateProjectTitle(int projectId, String newTitle) async {
 Future<List<Map<String, dynamic>>> searchAnnotationsWithLanguageFilter(
     String annotationText, String? language) async {
   var url = Uri.parse(
-      'http://localhost:5000/annotation/search_sentences_by_annotation');
+      'http://localhost:5432/annotation/search_sentences_by_annotation');
 
   var token = await SecureStorage().readSecureData("jwtToken");
 
@@ -278,7 +278,7 @@ Future<List<Map<String, dynamic>>> searchAnnotationsWithLanguageFilter(
 
 Future<bool> registerUser(String name, String email, String password,
     String language, String role, String organisation) async {
-  var url = Uri.parse('http://localhost:5000/user/register');
+  var url = Uri.parse('http://localhost:5432/user/register');
   var body = {
     "name": name,
     "email": email,

@@ -46,7 +46,7 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
 
   Future<Object> _uploadProject(String projectTitle, String projectDescription,
       String language, String fileText) async {
-    var url = Uri.parse('http://localhost:5000/project/add_project');
+    var url = Uri.parse('http://localhost:5432/project/add_project');
     token = await SecureStorage().readSecureData("jwtToken");
     print(token);
 
