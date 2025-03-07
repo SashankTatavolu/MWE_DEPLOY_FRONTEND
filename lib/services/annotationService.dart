@@ -10,7 +10,7 @@ import 'dart:html' as html;
 
 class AnnotationService {
   Future<bool> addAnnotation(List<Annotation> annotations) async {
-    var url = Uri.http('www.cfilt.iitb.ac.in', 'annotation/add_annotations');
+    var url = Uri.parse('http://localhost:5000/annotation/add_annotations');
     var token = await SecureStorage().readSecureData("jwtToken");
     var body = json.encode(annotations.map((a) => a.toJson()).toList());
     print("Called");
@@ -33,7 +33,7 @@ class AnnotationService {
 
   Future<List<Annotation>> fetchAnnotations(int sentenceId) async {
     print(sentenceId);
-    var url = Uri.http('www.cfilt.iitb.ac.in', 'annotation/get_annotations');
+    var url = Uri.parse('http://localhost:5000/annotation/get_annotations');
     var token = await SecureStorage().readSecureData("jwtToken");
     var body = json.encode({"sentence_id": sentenceId});
 
@@ -56,7 +56,7 @@ class AnnotationService {
 
   Future<bool> deleteProject(int projectId) async {
     var url =
-        Uri.http('www.cfilt.iitb.ac.in', 'project/delete_project/$projectId');
+        Uri.parse('http://localhost:5000/project/delete_project/$projectId');
     var token = await SecureStorage().readSecureData("jwtToken");
 
     final response = await http.delete(
@@ -72,7 +72,7 @@ class AnnotationService {
   Future<void> downloadAnnotationsXML(
       int project_id, String project_title) async {
     var url =
-        Uri.http('www.cfilt.iitb.ac.in', 'annotation/download_annotations_xml');
+        Uri.parse('http://localhost:5000/annotation/download_annotations_xml');
     var token = await SecureStorage().readSecureData("jwtToken");
     var body = json.encode({"project_id": project_id});
 
@@ -104,8 +104,8 @@ class AnnotationService {
 
   Future<void> downloadAnnotationsTXT(
       int project_id, String project_title) async {
-    var url = Uri.http(
-        'www.cfilt.iitb.ac.in', 'annotation/download_annotations_text');
+    var url =
+        Uri.parse('http://localhost:5000/annotation/download_annotations_text');
     var token = await SecureStorage().readSecureData("jwtToken");
     var body = json.encode({"project_id": project_id});
 
@@ -137,7 +137,7 @@ class AnnotationService {
 
   Future<bool> updateAnnotation(Annotation annotation) async {
     assert(annotation.id != null);
-    final url = Uri.parse('www.cfilt.iitb.ac.in/${annotation.id}');
+    final url = Uri.parse('http://localhost:5000/nnotation.id}');
     final response = await http.put(
       url,
       headers: {'Content-Type': 'application/json'},
@@ -147,7 +147,7 @@ class AnnotationService {
   }
 
   Future<bool> deleteAnnotation(int annotationId) async {
-    final url = Uri.parse('www.cfilt.iitb.ac.in/$annotationId');
+    final url = Uri.parse('http://localhost:5000/notationId');
     final response = await http.delete(url);
     return response.statusCode == 200;
   }

@@ -2,13 +2,14 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:multiwordexpressionworkbench/fetchData/fetchProjectItems.dart';
 import 'package:multiwordexpressionworkbench/fetchData/fetchSentenceItems.dart';
 import 'package:multiwordexpressionworkbench/services/secureStorageService.dart';
+import 'package:multiwordexpressionworkbench/ui/home_page.dart';
 import '../models/annotation_model.dart';
 import '../models/project.dart';
 import '../models/sentence_model.dart';
 import '../services/annotationService.dart';
-import 'loginPage.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 class AnnotateSentencePage extends StatefulWidget {
@@ -28,6 +29,7 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
   TextEditingController? _controller;
   int currentPage = 0;
   final int sentencesPerPage = 6;
+  List<int> assignedSentenceIds = [];
   bool isValidTextSelected = false;
   String selectedText = "";
   final List<String> _dropdownAnnotationValues = [
@@ -46,6 +48,11 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
   void initState() {
     super.initState();
     _controller = TextEditingController();
+    fetchAssignedSentenceIds().then((ids) {
+      setState(() {
+        assignedSentenceIds = ids;
+      });
+    });
   }
 
   @override
@@ -114,7 +121,7 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
           height: 600,
           child: Column(
             children: [
-              _buildSentenceList(currentPageSentences),
+              _buildSentenceList(currentPageSentences, assignedSentenceIds),
               isValidTextSelected
                   ? _buildAnnotationControls()
                   : _buildSelectTextPrompt(),
@@ -263,6 +270,11 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
       annotation.wordPhrase = wordPhraseController.text;
     });
 
+    // Check if annotation should be disabled
+    bool isEditingDisabled = annotation.annotation.startsWith('ENAMEX') ||
+        annotation.annotation.startsWith('NUMEX') ||
+        annotation.annotation.startsWith('TIMEX');
+
     return ListTile(
       title: Row(
         children: [
@@ -270,11 +282,14 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
             flex: 2,
             child: TextField(
               controller: wordPhraseController,
+              enabled:
+                  !isEditingDisabled, // Disable if it's ENAMEX, NUMEX, or TIMEX
               onSubmitted: (newValue) {
-                // Update the wordPhrase directly
-                setState(() {
-                  annotation.wordPhrase = newValue;
-                });
+                if (!isEditingDisabled) {
+                  setState(() {
+                    annotation.wordPhrase = newValue;
+                  });
+                }
               },
             ),
           ),
@@ -292,10 +307,14 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
         (index + 1).toString(),
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => _deleteAnnotation(index),
-      ),
+      trailing: (annotation.annotation.startsWith('ENAMEX') ||
+              annotation.annotation.startsWith('NUMEX') ||
+              annotation.annotation.startsWith('TIMEX'))
+          ? null // Hide delete button
+          : IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _deleteAnnotation(index),
+            ),
     );
   }
 
@@ -350,42 +369,40 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
     });
   }
 
-  Future<void> _logout(BuildContext context) async {
-    await SecureStorage().deleteSecureData('jwtToken');
-    // Navigate to Login Page
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
-    );
-  }
-
   Widget _buildProjectHeader() => Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [Text(widget.project.title), Text(widget.project.language)],
       );
 
-  Widget _buildSentenceList(List<Sentence> sentences) => Expanded(
-        child: ListView.builder(
-          itemCount: sentences.length,
-          itemBuilder: (context, index) {
-            return _buildSentenceTile(index, sentences);
-          },
-        ),
-      );
+  Widget _buildSentenceList(
+      List<Sentence> sentences, List<int> assignedSentenceIds) {
+    return Expanded(
+      child: ListView.builder(
+        itemCount: sentences.length,
+        itemBuilder: (context, index) {
+          return _buildSentenceTile(index, sentences, assignedSentenceIds);
+        },
+      ),
+    );
+  }
 
-  Widget _buildSentenceTile(int index, List<Sentence> sentences) {
+  Widget _buildSentenceTile(
+      int index, List<Sentence> sentences, List<int> assignedSentenceIds) {
     final isSelected = selectedIndex == index;
     final sentence = sentences[index];
+    bool isUserAssigned = assignedSentenceIds.contains(sentence.id);
+
     return ListTile(
       onTap: () async {
         if (unsavedChanges) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(
-                  "Please submit the annotations, before moving on to next sentence")));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content:
+                    Text("Please submit the annotations before moving on.")),
+          );
         } else {
           List<Annotation> existingAnnotationList =
               await annotationService.fetchAnnotations(sentence.id);
-          print(existingAnnotationList);
           setState(() {
             selectedIndex = index;
             isValidTextSelected = false;
@@ -394,35 +411,48 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
           });
         }
       },
-      leading: sentence.isAnnotated == true
-          ? const Icon(
-              Icons.done_outline_outlined,
-              color: Colors.green,
-            )
+      leading: sentence.isAnnotated
+          ? const Icon(Icons.done_outline_outlined, color: Colors.green)
           : null,
       title: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey),
-          color: isSelected ? Colors.yellow : Colors.grey[300],
+          color: isSelected
+              ? (isUserAssigned
+                  ? Colors.yellow
+                  : Colors.blue[200]) // Highlight unassigned differently
+              : Colors.grey[300],
         ),
         padding: const EdgeInsets.all(8),
-        child: isSelected
-            ? TextField(
-                decoration: const InputDecoration(border: InputBorder.none),
-                controller: _controller,
-                readOnly: true,
-                showCursor: false,
-                autofocus: true,
-                maxLines: null, // Allows multi-line input
-              )
-            : Text(
-                sentence.content,
-                style: const TextStyle(fontSize: 16.5),
-                maxLines: null, // Allows wrapping to multiple lines
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "ID: ${sentence.id}",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            isSelected
+                ? TextField(
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    controller: _controller,
+                    readOnly: true, // Always read-only
+                    showCursor: false,
+                    autofocus: true,
+                    maxLines: null,
+                    style: TextStyle(
+                        color: isUserAssigned ? Colors.black : Colors.grey),
+                  )
+                : Text(
+                    sentence.content,
+                    style: const TextStyle(fontSize: 16.5),
+                    maxLines: null,
+                  ),
+          ],
+        ),
       ),
-      trailing: selectedIndex == index
+      trailing: (selectedIndex == index && isUserAssigned)
           ? ElevatedButton(
               onPressed: () {
                 _checkSelectedText(_controller!);
@@ -506,13 +536,13 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
     );
   }
 
-  void _handleLogout(BuildContext context) {
+  Future<void> _handleLogout(BuildContext context) async {
     // Clear any existing user data if needed (optional)
-
+    await SecureStorage().deleteSecureData('jwtToken');
     // Navigate to the login page and remove all previous routes from the stack
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
+      MaterialPageRoute(builder: (context) => HomePage()),
       (Route<dynamic> route) => false, // This removes all previous routes
     );
   }
@@ -537,7 +567,8 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
             400, // Adjust leading width to accommodate the back button
         backgroundColor: Colors.blue[100],
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.spaceBetween, // Adjusted alignment
           children: [
             ElevatedButton(
               onPressed: () {
@@ -545,9 +576,7 @@ class _AnnotateSentencePageState extends State<AnnotateSentencePage> {
               },
               child: const Text("Show User Guidelines"),
             ),
-            const Spacer(),
             const Text('Multiword Expression Workbench'),
-            const Spacer(),
             ElevatedButton(
               onPressed: () {
                 _showPDF(context);

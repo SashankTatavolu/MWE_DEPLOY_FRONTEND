@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:multiwordexpressionworkbench/services/annotationService.dart';
 import 'package:multiwordexpressionworkbench/services/secureStorageService.dart';
 import 'package:multiwordexpressionworkbench/ui/annotateSentencePage.dart';
-import 'package:multiwordexpressionworkbench/ui/loginPage.dart';
+import 'package:multiwordexpressionworkbench/ui/home_page.dart';
 import 'package:multiwordexpressionworkbench/ui/overlays/addProjectOverlay.dart';
 import '../fetchData/fetchProjectItems.dart';
 import '../fetchData/fetchSentenceItems.dart';
@@ -31,6 +31,7 @@ class _ProjectsPageState extends State<ProjectsPage> {
       {}; // Map to store total sentences for each project
   Map<int, int> annotatedSentencesMap = {};
   bool isLoading = true;
+  String? userRole;
 
   Future<void> fetchProjectItems() async {
     try {
@@ -47,14 +48,18 @@ class _ProjectsPageState extends State<ProjectsPage> {
 
   Future<void> fetchAllSentenceCounts() async {
     // Fetch total and annotated sentence counts for all projects in parallel
-    for (var project in projects) {
+    final fetchTasks = projects.map((project) async {
       final totalSentences = await fetchTotalSentences(project.id);
       final annotatedSentences = await fetchAnnotatedSentences(project.id);
       setState(() {
         totalSentencesMap[project.id] = totalSentences;
         annotatedSentencesMap[project.id] = annotatedSentences;
       });
-    }
+    }).toList();
+
+    // Wait for all tasks to complete
+    await Future.wait(fetchTasks);
+
     // After fetching all sentence data, set loading to false
     setState(() {
       isLoading = false;
@@ -79,6 +84,16 @@ class _ProjectsPageState extends State<ProjectsPage> {
   void initState() {
     super.initState();
     fetchProjectItems();
+    fetchAllSentenceCounts();
+    _getUserRole();
+  }
+
+  Future<void> _getUserRole() async {
+    // Retrieve the user's role from SecureStorage
+    String? role = await SecureStorage().readSecureData('role');
+    setState(() {
+      userRole = role; // Set the role in the state
+    });
   }
 
   void _showOverlay(BuildContext context) async {
@@ -103,7 +118,7 @@ class _ProjectsPageState extends State<ProjectsPage> {
     await SecureStorage().deleteSecureData('jwtToken');
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
+      MaterialPageRoute(builder: (context) => HomePage()),
     );
   }
 
@@ -122,7 +137,7 @@ class _ProjectsPageState extends State<ProjectsPage> {
                   20), // Adding some padding for better appearance
               insetPadding: EdgeInsets.symmetric(
                   horizontal: 30), // Increasing width of the popup
-              title: const Text('Search Annotation Type'),
+              title: const Text('Search Multi Word Expression Type'),
               content: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -138,7 +153,7 @@ class _ProjectsPageState extends State<ProjectsPage> {
                             query = value;
                           },
                           decoration: const InputDecoration(
-                            labelText: 'Search Annotation Type',
+                            labelText: 'Search MWE Type',
                           ),
                         ),
                       ),
@@ -336,12 +351,20 @@ class _ProjectsPageState extends State<ProjectsPage> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    _showOverlay(context);
-                  },
-                  style: const ButtonStyle(
-                    backgroundColor:
-                        WidgetStatePropertyAll<Color>(Colors.green),
+                  onPressed: userRole == 'Admin'
+                      ? () {
+                          _showOverlay(context);
+                        }
+                      : null, // Disable button if user is not admin
+                  style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.resolveWith<Color?>(
+                      (Set<MaterialState> states) {
+                        if (states.contains(MaterialState.disabled)) {
+                          return Colors.grey; // Disabled button color
+                        }
+                        return Colors.green; // Normal color
+                      },
+                    ),
                   ),
                   child: const Text(
                     "+ Add Project",
@@ -422,152 +445,226 @@ class _ProjectsPageState extends State<ProjectsPage> {
                                           child: const Text('Assign User'),
                                           onTap: () async {
                                             try {
-                                              // Check if the user is assigned to the project
-                                              bool isAssigned =
-                                                  await isUserAssigned(
+                                              final organizationName =
+                                                  await SecureStorage()
+                                                      .readSecureData(
+                                                          'organization');
+                                              List<Map<String, dynamic>> users =
+                                                  await fetchUsersByOrganization(
+                                                      organizationName);
+
+                                              if (users.isEmpty) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'No users found in the organization.')),
+                                                );
+                                                return;
+                                              }
+
+                                              // Fetch sentences of the project
+                                              List<int> sentenceIds =
+                                                  await fetchSentenceIds(
                                                       project.id);
+                                              if (sentenceIds.isEmpty) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'No sentences found for this project.')),
+                                                );
+                                                return;
+                                              }
 
-                                              if (!isAssigned) {
-                                                // If no user is assigned, allow the user to assign one
-                                                final organizationName =
-                                                    await SecureStorage()
-                                                        .readSecureData(
-                                                            'organization');
-                                                List<Map<String, dynamic>>
-                                                    users =
-                                                    await fetchUsersByOrganization(
-                                                        organizationName);
+                                              // Fetch assigned and unassigned sentences
+                                              Map<String, List<int>>
+                                                  sentenceStatus =
+                                                  await fetchSentenceStatus(
+                                                      project.id);
+                                              List<int> unassignedSentences =
+                                                  sentenceStatus[
+                                                      "unassigned_sentences"]!;
 
-                                                // Show dialog to select users if no one is assigned
-                                                await showDialog(
-                                                  context: context,
-                                                  builder: (context) {
-                                                    Set<int> selectedUserIds =
-                                                        {}; // To store selected user IDs
+                                              if (unassignedSentences.isEmpty) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'All sentences are already assigned.')),
+                                                );
+                                                return;
+                                              }
 
-                                                    return StatefulBuilder(
-                                                      builder:
-                                                          (context, setState) {
-                                                        return AlertDialog(
-                                                          title: const Text(
-                                                              'Select Users'),
-                                                          content: SizedBox(
-                                                            height: 300,
-                                                            width: 600,
-                                                            child: Column(
-                                                              children: [
-                                                                Expanded(
-                                                                  child: ListView
-                                                                      .builder(
-                                                                    itemCount: users
-                                                                        .length,
-                                                                    itemBuilder:
-                                                                        (context,
-                                                                            index) {
-                                                                      final user =
-                                                                          users[
-                                                                              index];
-                                                                      return CheckboxListTile(
-                                                                        title: Text(
-                                                                            user['name']),
-                                                                        value: selectedUserIds
-                                                                            .contains(user['id']),
-                                                                        onChanged:
-                                                                            (bool?
-                                                                                isSelected) {
-                                                                          setState(
-                                                                              () {
-                                                                            if (isSelected ==
-                                                                                true) {
-                                                                              selectedUserIds.add(user['id']);
-                                                                            } else {
-                                                                              selectedUserIds.remove(user['id']);
-                                                                            }
-                                                                          });
-                                                                        },
-                                                                      );
-                                                                    },
-                                                                  ),
+                                              // Show dialog to select users and assign sentences
+                                              await showDialog(
+                                                context: context,
+                                                builder: (context) {
+                                                  Set<int> selectedUserIds =
+                                                      {}; // Selected user IDs
+                                                  Set<int> selectedSentenceIds =
+                                                      {}; // Selected sentence IDs
+
+                                                  return StatefulBuilder(
+                                                    builder:
+                                                        (context, setState) {
+                                                      return AlertDialog(
+                                                        title: const Text(
+                                                            'Assign Sentences to Users'),
+                                                        content: SizedBox(
+                                                          height: 400,
+                                                          width: 600,
+                                                          child: Column(
+                                                            children: [
+                                                              // User selection
+                                                              const Text(
+                                                                  "Select Users"),
+                                                              Expanded(
+                                                                child: ListView
+                                                                    .builder(
+                                                                  itemCount: users
+                                                                      .length,
+                                                                  itemBuilder:
+                                                                      (context,
+                                                                          index) {
+                                                                    final user =
+                                                                        users[
+                                                                            index];
+                                                                    return CheckboxListTile(
+                                                                      title: Text(
+                                                                          user[
+                                                                              'name']),
+                                                                      value: selectedUserIds
+                                                                          .contains(
+                                                                              user['id']),
+                                                                      onChanged:
+                                                                          (bool?
+                                                                              isSelected) {
+                                                                        setState(
+                                                                            () {
+                                                                          if (isSelected ==
+                                                                              true) {
+                                                                            selectedUserIds.add(user['id']);
+                                                                          } else {
+                                                                            selectedUserIds.remove(user['id']);
+                                                                          }
+                                                                        });
+                                                                      },
+                                                                    );
+                                                                  },
                                                                 ),
-                                                                ElevatedButton(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    if (selectedUserIds
-                                                                        .isEmpty) {
-                                                                      ScaffoldMessenger.of(
-                                                                              context)
-                                                                          .showSnackBar(
-                                                                        const SnackBar(
-                                                                          content:
-                                                                              Text('No users selected.'),
-                                                                        ),
-                                                                      );
-                                                                      return;
-                                                                    }
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 10),
 
-                                                                    // Assign selected users to the project
-                                                                    for (int userId
-                                                                        in selectedUserIds) {
-                                                                      await assignUserToProject(
-                                                                          project
-                                                                              .id,
-                                                                          userId);
-                                                                    }
+                                                              // Sentence selection
+                                                              const Text(
+                                                                  "Select Sentences"),
+                                                              Expanded(
+                                                                child: ListView
+                                                                    .builder(
+                                                                  itemCount:
+                                                                      unassignedSentences
+                                                                          .length,
+                                                                  itemBuilder:
+                                                                      (context,
+                                                                          index) {
+                                                                    final sentenceId =
+                                                                        unassignedSentences[
+                                                                            index];
+                                                                    return CheckboxListTile(
+                                                                      title: Text(
+                                                                          "Sentence ID: $sentenceId"),
+                                                                      value: selectedSentenceIds
+                                                                          .contains(
+                                                                              sentenceId),
+                                                                      onChanged:
+                                                                          (bool?
+                                                                              isSelected) {
+                                                                        setState(
+                                                                            () {
+                                                                          if (isSelected ==
+                                                                              true) {
+                                                                            selectedSentenceIds.add(sentenceId);
+                                                                          } else {
+                                                                            selectedSentenceIds.remove(sentenceId);
+                                                                          }
+                                                                        });
+                                                                      },
+                                                                    );
+                                                                  },
+                                                                ),
+                                                              ),
 
-                                                                    Navigator.of(
-                                                                            context)
-                                                                        .pop(); // Close dialog
+                                                              // Submit Button
+                                                              ElevatedButton(
+                                                                onPressed:
+                                                                    () async {
+                                                                  if (selectedUserIds
+                                                                          .isEmpty ||
+                                                                      selectedSentenceIds
+                                                                          .isEmpty) {
                                                                     ScaffoldMessenger.of(
                                                                             context)
                                                                         .showSnackBar(
                                                                       const SnackBar(
                                                                         content:
-                                                                            Text('Users assigned successfully!'),
+                                                                            Text('Select at least one user and sentence.'),
                                                                       ),
                                                                     );
-                                                                  },
-                                                                  child: const Text(
-                                                                      'Submit'),
-                                                                ),
-                                                              ],
-                                                            ),
+                                                                    return;
+                                                                  }
+
+                                                                  // Assign selected sentences to users
+                                                                  List<Map<String, dynamic>>
+                                                                      assignments =
+                                                                      [];
+                                                                  for (int userId
+                                                                      in selectedUserIds) {
+                                                                    assignments
+                                                                        .add({
+                                                                      "user_id":
+                                                                          userId,
+                                                                      "sentence_ids":
+                                                                          selectedSentenceIds
+                                                                              .toList(),
+                                                                    });
+                                                                  }
+
+                                                                  await assignSentencesToUsers(
+                                                                      project
+                                                                          .id,
+                                                                      assignments);
+
+                                                                  Navigator.of(
+                                                                          context)
+                                                                      .pop(); // Close dialog
+                                                                  ScaffoldMessenger.of(
+                                                                          context)
+                                                                      .showSnackBar(
+                                                                    const SnackBar(
+                                                                      content: Text(
+                                                                          'Sentences assigned successfully!'),
+                                                                    ),
+                                                                  );
+                                                                },
+                                                                child: const Text(
+                                                                    'Submit'),
+                                                              ),
+                                                            ],
                                                           ),
-                                                        );
-                                                      },
-                                                    );
-                                                  },
-                                                );
-                                              } else {
-                                                // Show a message if a user is already assigned
-                                                showDialog(
-                                                  context: context,
-                                                  builder: (context) =>
-                                                      AlertDialog(
-                                                    title: const Text(
-                                                        'User Assignment'),
-                                                    content: const Text(
-                                                        'A user is already assigned to this project.'),
-                                                    actions: <Widget>[
-                                                      TextButton(
-                                                        child:
-                                                            const Text('Close'),
-                                                        onPressed: () {
-                                                          Navigator.of(context)
-                                                              .pop();
-                                                        },
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
+                                                        ),
+                                                      );
+                                                    },
+                                                  );
+                                                },
+                                              );
                                             } catch (e) {
-                                              // Handle any error when checking assignment status
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
                                                 SnackBar(
-                                                  content: Text(
-                                                      'Failed to check assignment status: $e'),
-                                                ),
+                                                    content: Text(
+                                                        'Failed to assign sentences: $e')),
                                               );
                                             }
                                           },

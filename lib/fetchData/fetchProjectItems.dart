@@ -10,8 +10,7 @@ import '../models/project.dart';
 import '../services/secureStorageService.dart';
 
 Future<List<Project>> FetchProjectItems() async {
-  var url = Uri.https(
-      'www.cfilt.iitb.ac.in', 'annotation_tool_apis/project/get_project_list');
+  var url = Uri.parse('http://localhost:5000/project/get_project_list');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var header = {
@@ -35,8 +34,8 @@ Future<List<Project>> FetchProjectItems() async {
 
 Future<List<Map<String, dynamic>>> fetchUsersByOrganization(
     String organizationName) async {
-  var url = Uri.https(
-      'www.cfilt.iitb.ac.in', 'annotation_tool_apis/user/$organizationName');
+  var url =
+      Uri.parse('http://localhost:5000/user/organisation/$organizationName');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -61,9 +60,9 @@ Future<List<Map<String, dynamic>>> fetchUsersByOrganization(
   }
 }
 
-Future<void> assignUserToProject(int projectId, int userId) async {
-  var url = Uri.https('www.cfilt.iitb.ac.in',
-      'annotation_tool_apis/project/assign_user_to_project/$projectId');
+Future<void> assignSentencesToUsers(
+    int projectId, List<Map<String, dynamic>> assignments) async {
+  var url = Uri.parse('http://localhost:5000/sentence/assign_sentences');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -72,17 +71,98 @@ Future<void> assignUserToProject(int projectId, int userId) async {
   };
 
   var body = json.encode({
-    "user_id": userId,
+    "project_id": projectId,
+    "assignments": assignments, // List of {user_id, sentence_ids}
+  });
+
+  try {
+    final response = await http.post(url, headers: headers, body: body);
+
+    if (response.statusCode == 200) {
+      print('Sentences assigned successfully for project $projectId');
+    } else {
+      print('Failed to assign sentences: ${response.body}');
+      throw Exception('Failed to assign sentences');
+    }
+  } catch (e) {
+    print('Error assigning sentences: $e');
+    throw Exception('Error occurred while assigning sentences');
+  }
+}
+
+Future<List<int>> fetchSentenceIds(int projectId) async {
+  var url = Uri.parse('http://localhost:5000/sentence/get_sentence_ids');
+  var token = await SecureStorage().readSecureData("jwtToken");
+
+  var headers = {
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
+
+  var body = json.encode({
+    "project_id": projectId,
   });
 
   final response = await http.post(url, headers: headers, body: body);
 
-  print(response);
+  if (response.statusCode == 200) {
+    var jsonResponse = json.decode(response.body);
+    List<int> sentenceIds = List<int>.from(jsonResponse["sentence_ids"]);
+    return sentenceIds;
+  } else {
+    throw Exception('Failed to fetch sentence IDs for project $projectId');
+  }
+}
+
+Future<List<int>> fetchAssignedSentenceIds() async {
+  var url =
+      Uri.parse('http://localhost:5000/sentence/check_assigned_sentences');
+  var token = await SecureStorage().readSecureData("jwtToken");
+
+  var headers = {
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
+
+  final response = await http.get(url, headers: headers);
 
   if (response.statusCode == 200) {
-    print('User assigned successfully to project $projectId');
+    var jsonResponse = json.decode(response.body);
+    if (jsonResponse.containsKey("assigned_sentence_ids")) {
+      List<int> assignedSentenceIds =
+          List<int>.from(jsonResponse["assigned_sentence_ids"]);
+      return assignedSentenceIds;
+    }
+    return [];
   } else {
-    throw Exception('Failed to assign user to project $projectId');
+    throw Exception('Failed to fetch assigned sentence IDs');
+  }
+}
+
+Future<Map<String, List<int>>> fetchSentenceStatus(int projectId) async {
+  var url = Uri.parse('http://localhost:5000/sentence/get_sentence_status');
+  var token = await SecureStorage().readSecureData("jwtToken");
+
+  var headers = {
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
+
+  var body = json.encode({
+    "project_id": projectId,
+  });
+
+  final response = await http.post(url, headers: headers, body: body);
+
+  if (response.statusCode == 200) {
+    var jsonResponse = json.decode(response.body);
+    return {
+      "assigned_sentences": List<int>.from(jsonResponse["assigned_sentences"]),
+      "unassigned_sentences":
+          List<int>.from(jsonResponse["unassigned_sentences"]),
+    };
+  } else {
+    throw Exception('Failed to fetch sentence status for project $projectId');
   }
 }
 
@@ -98,39 +178,14 @@ Future<int> fetchTotalSentences(int projectId) async {
   return sentences.length; // Return the total number of sentences
 }
 
-Future<bool> isUserAssigned(int projectId) async {
-  // Build the API endpoint
-  var url = Uri.https('www.cfilt.iitb.ac.in',
-      'annotation_tool_apis/project/is_user_assigned/$projectId');
-
-  // Retrieve the JWT token from secure storage
-  var token = await SecureStorage().readSecureData("jwtToken");
-
-  // Set up the headers with the token
-  var headers = {
-    'Authorization': 'Bearer $token',
-  };
-
-  // Send the GET request
-  final response = await http.get(url, headers: headers);
-
-  // Check the response status and parse the result
-  if (response.statusCode == 200) {
-    final data = json.decode(response.body);
-    return data['is_assigned'] ??
-        false; // Return true/false based on the response
-  } else {
-    // Handle errors by throwing an exception or logging the error
-    throw Exception('Failed to check assignment status for project $projectId');
-  }
-}
-
 Future<List<String>> searchAnnotations(String query, String? language) async {
-  var url = Uri.https(
-      'www.cfilt.iitb.ac.in', 'annotation_tool_apis/search_annotations', {
+  var url = Uri.parse(
+    'http://localhost:5000/search_annotations',
+  ).replace(queryParameters: {
     'query': query,
     'language': language ?? '',
   });
+  ;
 
   var token = await SecureStorage().readSecureData("jwtToken");
 
@@ -156,8 +211,8 @@ Future<List<String>> searchAnnotations(String query, String? language) async {
 }
 
 Future<void> updateProjectTitle(int projectId, String newTitle) async {
-  var url = Uri.https('www.cfilt.iitb.ac.in',
-      'annotation_tool_apis/project/update_project_title/$projectId');
+  var url = Uri.parse(
+      'http://localhost:5000/project/update_project_title/$projectId');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var headers = {
@@ -185,8 +240,8 @@ Future<void> updateProjectTitle(int projectId, String newTitle) async {
 
 Future<List<Map<String, dynamic>>> searchAnnotationsWithLanguageFilter(
     String annotationText, String? language) async {
-  var url = Uri.https('www.cfilt.iitb.ac.in',
-      'annotation_tool_apis/annotation/search_sentences_by_annotation');
+  var url = Uri.parse(
+      'http://localhost:5000/annotation/search_sentences_by_annotation');
 
   var token = await SecureStorage().readSecureData("jwtToken");
 
@@ -218,5 +273,43 @@ Future<List<Map<String, dynamic>>> searchAnnotationsWithLanguageFilter(
     }
   } else {
     throw Exception('Failed to search annotations');
+  }
+}
+
+Future<bool> registerUser(String name, String email, String password,
+    String language, String role, String organisation) async {
+  var url = Uri.parse('http://localhost:5000/user/register');
+  var body = {
+    "name": name,
+    "email": email,
+    "password": password,
+    "language": language,
+    "role": role,
+    "organisation": organisation
+  };
+
+  String bodyJson = jsonEncode(body);
+
+  final response = await http.post(
+    url,
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: bodyJson,
+  );
+
+  if (response.statusCode == 200) {
+    String jsonString = response.body;
+    Map<String, dynamic> jsonResponse = jsonDecode(jsonString);
+
+    // Save user details securely if needed
+    await SecureStorage()
+        .writeSecureData('user_id', jsonResponse['id'].toString());
+    await SecureStorage().writeSecureData('user_email', jsonResponse['email']);
+    await SecureStorage().writeSecureData('user_name', jsonResponse['name']);
+
+    return true;
+  } else {
+    return false;
   }
 }

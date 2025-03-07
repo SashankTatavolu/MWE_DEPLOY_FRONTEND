@@ -1,7 +1,6 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, constant_identifier_names, avoid_print
 
 import 'dart:convert';
-import 'dart:js_util';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -41,39 +40,46 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
   Language? _selectedLanguage = Language.Bangla;
   String? fileContent;
   String? token;
+  String? userRole;
 
   // List of items in our dropdown menu
 
   Future<Object> _uploadProject(String projectTitle, String projectDescription,
       String language, String fileText) async {
-    var url = Uri.https(
-        'www.cfilt.iitb.ac.in', 'annotation_tool_apis/project/add_project');
+    var url = Uri.parse('http://localhost:5000/project/add_project');
     token = await SecureStorage().readSecureData("jwtToken");
     print(token);
-    var header = {
-      'Content-Type': 'application/json; charset=UTF-8',
-      'Authorization': 'Bearer $token',
-    };
-    var body = {
-      "title": projectTitle,
-      "description": projectDescription,
-      "language": language,
-      "file_text": fileText
-    };
-    String bodyJson = jsonEncode(body);
 
-    final response = await https.post(
-      url,
-      headers: header,
-      body: bodyJson,
+    // Create a MultipartRequest
+    var request = https.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token';
+
+    // Add text fields
+    request.fields['title'] = projectTitle;
+    request.fields['description'] = projectDescription;
+    request.fields['language'] = language;
+
+    // Attach the file (adjust the key 'file' if your API expects a different name)
+    request.files.add(
+      https.MultipartFile.fromString('file', fileText, filename: 'upload.txt'),
     );
+
+    // Send the request
+    var streamedResponse = await request.send();
+    var response = await https.Response.fromStream(streamedResponse);
     print(response);
+
     if (response.statusCode == 201) {
-      widget.onCancel!();
+      widget.onCancel?.call();
       return response;
     } else {
       return false;
     }
+  }
+
+  void _showSnackbar(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -332,11 +338,9 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
                             content: Text("Project Description is mandatory"),
                           ));
                         }
-                        if (not(_fileUploaded)) {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(
-                            content: Text("Text File Upload is mandatory"),
-                          ));
+                        if (!_fileUploaded) {
+                          _showSnackbar("Text File Upload is mandatory");
+                          return;
                         }
                         if (_projectNameController.text.isNotEmpty &
                             _projectNameController.text.isNotEmpty &
@@ -344,7 +348,7 @@ class _AddProjectOverlayState extends State<AddProjectOverlay> {
                           var response = _uploadProject(
                               _projectNameController.text,
                               _projectDescriptionController.text,
-                              _selectedLanguage!.toString(),
+                              _selectedLanguage!.name,
                               fileContent!);
                           print("response +$response");
                           widget.onCancel!();

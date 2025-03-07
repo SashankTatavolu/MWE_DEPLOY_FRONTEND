@@ -2,11 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:multiwordexpressionworkbench/services/secureStorageService.dart';
+import 'package:multiwordexpressionworkbench/ui/home_page.dart';
 
 import '../models/annotation_model.dart';
 import '../models/sentence_model.dart';
 import '../services/annotationService.dart';
-import 'loginPage.dart';
 
 class EditableTextFields extends StatefulWidget {
   List<Sentence>? sentences;
@@ -84,7 +84,7 @@ class _EditableTextFieldsState extends State<EditableTextFields> {
     await SecureStorage().deleteSecureData('jwtToken');
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
+      MaterialPageRoute(builder: (context) => HomePage()),
     );
   }
 

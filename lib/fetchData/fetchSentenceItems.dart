@@ -8,8 +8,7 @@ import '../models/sentence_model.dart';
 import '../services/secureStorageService.dart';
 
 Future<List<Sentence>> FetchSentenceItems(int projectId) async {
-  var url = Uri.https(
-      'www.cfilt.iitb.ac.in', 'annotation_tool_apis/sentence/get_sentences');
+  var url = Uri.parse('http://localhost:5000/sentence/get_sentences');
   var token = await SecureStorage().readSecureData("jwtToken");
 
   var body = {"project_id": projectId};
@@ -39,8 +38,7 @@ Future<List<Sentence>> FetchSentenceItems(int projectId) async {
 Future<List<Map<String, dynamic>>> searchAnnotationsWithResults(
     String query, String? language) async {
   // API endpoint
-  var url = Uri.https('www.cfilt.iitb.ac.in',
-      'annotation_tool_apis/annotation/search_annotations');
+  var url = Uri.parse('http://localhost:5000/annotation/search_annotations');
 
   var token = await SecureStorage().readSecureData("jwtToken");
 
